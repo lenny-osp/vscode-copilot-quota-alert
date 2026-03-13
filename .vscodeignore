@@ -2,7 +2,7 @@
 src/**
 node_modules/**
 *.ts
-!dist/**
+!out/**
 tsconfig.json
 esbuild.js
 .gitignore
