@@ -44,12 +44,21 @@ The extension calculates your pacing using this logic:
 - `copilot-quota-alert.refreshIntervalMinutes`: (Default: `5`) Frequency of automatic updates.
 - `copilot-quota-alert.monthlyLimit`: (Default: `300`) Fallback limit if the API does not return your plan entitlement.
 
-## Installation for Use
+## Installation
 
-To install this in your local VS Code:
-1. Package the extension: `npx @vscode/vsce package`
-2. In VS Code, go to **Extensions** -> **...** (top right) -> **Install from VSIX...**
-3. Select the generated `.vsix` file.
+### Option 1: GitHub Releases (Recommended)
+1. Go to the [Releases](https://github.com/lenny-osp/vscode-copilot-quota-alert/releases) page.
+2. Download the latest `.vsix` file (e.g., `copilot-quota-alert-0.0.1.vsix`).
+3. In VS Code, open the **Extensions** view (`Cmd+Shift+X` or `Ctrl+Shift+X`).
+4. Click the **...** (Views and More Actions) in the top right of the Extensions bar.
+5. Select **Install from VSIX...**.
+6. Select the downloaded `.vsix` file.
+
+### Option 2: Build from Source
+1. Clone this repository.
+2. Run `npm install`.
+3. Package the extension: `npx @vscode/vsce package`.
+4. Install the generated `.vsix` file as described in Option 1.
 
 ## Development
 
