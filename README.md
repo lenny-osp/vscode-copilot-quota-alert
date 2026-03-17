@@ -56,15 +56,17 @@ The token is stored securely in VS Code's encrypted **SecretStorage** — it is 
 - `copilot-quota-alert.refreshIntervalMinutes`: (Default: `5`) Frequency of automatic updates.
 - `copilot-quota-alert.monthlyLimit`: (Default: `300`) Fallback limit if the API does not return your plan entitlement.
 
-## Installation
+## Installation & Updates
 
 ### Option 1: GitHub Releases (Recommended)
 1. Go to the [Releases](https://github.com/lenny-osp/vscode-copilot-quota-alert/releases) page.
-2. Download the latest `.vsix` file (e.g., `copilot-quota-alert-0.0.1.vsix`).
+2. Download the latest `.vsix` file (e.g., `copilot-quota-alert-v0.0.3.vsix`).
 3. In VS Code, open the **Extensions** view (`Cmd+Shift+X` or `Ctrl+Shift+X`).
 4. Click the **...** (Views and More Actions) in the top right of the Extensions bar.
 5. Select **Install from VSIX...**.
 6. Select the downloaded `.vsix` file.
+
+> **Tip**: To **update** the extension, simply follow the steps above with the new `.vsix` file. VS Code will automatically replace the old version with the new one.
 
 ### Option 2: Build from Source
 1. Clone this repository.
