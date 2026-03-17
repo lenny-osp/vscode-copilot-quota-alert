@@ -39,6 +39,41 @@ let lastSummary:
 const DEFAULT_MONTHLY_LIMIT = 300;
 
 // ---------------------------------------------------------------------------
+// Authentication
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves a GitHub OAuth token using the following priority:
+ *   1. An existing VS Code ↔ GitHub session (silent — no user prompt).
+ *   2. A manually stored GitHub PAT from SecretStorage.
+ *
+ * Returns `undefined` if neither source yields a token.
+ */
+async function getToken(): Promise<{ token: string; source: "session" | "pat" } | undefined> {
+    // 1. Try the VS Code GitHub session (silent — never prompts the user).
+    try {
+        const session = await vscode.authentication.getSession(
+            "github",
+            ["read:user", "copilot"],
+            { silent: true }
+        );
+        if (session?.accessToken) {
+            return { token: session.accessToken, source: "session" };
+        }
+    } catch {
+        // Session provider unavailable — fall through to PAT.
+    }
+
+    // 2. Fall back to the stored PAT.
+    const pat = await secretStorage.get("copilot-quota-alert.githubToken");
+    if (pat) {
+        return { token: pat, source: "pat" };
+    }
+
+    return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Activation
 // ---------------------------------------------------------------------------
 
@@ -155,12 +190,14 @@ async function updateQuota(): Promise<void> {
     showLoading();
 
     try {
-        const token = await secretStorage.get("copilot-quota-alert.githubToken");
+        const auth = await getToken();
 
-        if (!token) {
+        if (!auth) {
             showNoToken();
             return;
         }
+
+        const { token, source } = auth;
 
         // --- Fetch usage data --------------------------------------------------
         let usage: CopilotUsage;
@@ -229,10 +266,15 @@ async function updateQuota(): Promise<void> {
         );
 
         lastSummary = summary;
-        updateStatusBar(summary);
+        updateStatusBar(summary, source);
     } catch (error) {
         if (error instanceof TokenExpiredError) {
-            await secretStorage.delete("copilot-quota-alert.githubToken");
+            // Only remove the stored PAT if that was actually what we used.
+            // A session token cannot be deleted from our side.
+            const auth = await getToken();
+            if (!auth || auth.source === "pat") {
+                await secretStorage.delete("copilot-quota-alert.githubToken");
+            }
             showTokenExpired();
         } else {
             console.error("Copilot Quota Alert error:", error);
