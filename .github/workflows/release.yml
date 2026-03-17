@@ -24,6 +24,8 @@ jobs:
         run: npm run build
       - name: Package Extension
         run: npx @vscode/vsce package
+      - name: Rename Release Asset
+        run: mv *.vsix copilot-quota-alert-${{ github.ref_name }}.vsix
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
