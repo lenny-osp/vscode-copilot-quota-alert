@@ -25,7 +25,7 @@
     "commands": [
       {
         "command": "copilot-quota-alert.setToken",
-        "title": "Copilot Quota Alert: Set GitHub Token"
+        "title": "Copilot Quota Alert: Authenticate with GitHub"
       },
       {
         "command": "copilot-quota-alert.refresh",

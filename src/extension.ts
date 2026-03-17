@@ -44,24 +44,24 @@ const DEFAULT_MONTHLY_LIMIT = 300;
 
 /**
  * Resolves a GitHub OAuth token using the following priority:
- *   1. An existing VS Code ↔ GitHub session (silent — no user prompt).
+ *   1. An existing VS Code ↔ GitHub session.
  *   2. A manually stored GitHub PAT from SecretStorage.
  *
- * Returns `undefined` if neither source yields a token.
+ * @param createIfNone If true, will prompt the user to sign in if no session exists.
  */
-async function getToken(): Promise<{ token: string; source: "session" | "pat" } | undefined> {
-    // 1. Try the VS Code GitHub session (silent — never prompts the user).
+async function getToken(createIfNone = false): Promise<{ token: string; source: "session" | "pat" } | undefined> {
+    // 1. Try the VS Code GitHub session.
     try {
         const session = await vscode.authentication.getSession(
             "github",
-            ["read:user", "copilot"],
-            { silent: true }
+            ["read:user"],
+            { silent: !createIfNone, createIfNone }
         );
         if (session?.accessToken) {
             return { token: session.accessToken, source: "session" };
         }
-    } catch {
-        // Session provider unavailable — fall through to PAT.
+    } catch (e) {
+        // Session provider unavailable or user cancelled.
     }
 
     // 2. Fall back to the stored PAT.
@@ -71,6 +71,65 @@ async function getToken(): Promise<{ token: string; source: "session" | "pat" } 
     }
 
     return undefined;
+}
+
+/**
+ * Unified authentication flow. Shows a picker to choose between
+ * recommended VS Code session or manual PAT.
+ */
+async function authenticate(): Promise<void> {
+    const items: (vscode.QuickPickItem & { id: string })[] = [
+        {
+            id: "session",
+            label: "$(github) Sign in with GitHub",
+            detail: "Recommended. Uses your existing VS Code GitHub account.",
+            alwaysShow: true,
+        },
+        {
+            id: "pat",
+            label: "$(key) Set Personal Access Token (PAT)",
+            detail: "Manual fallback if session is not available.",
+            alwaysShow: true,
+        },
+    ];
+
+    const selection = await vscode.window.showQuickPick(items, {
+        placeHolder: "Choose how to authenticate with GitHub",
+    });
+
+    if (!selection) {
+        return;
+    }
+
+    if (selection.id === "session") {
+        const auth = await getToken(true);
+        if (auth?.source === "session") {
+            vscode.window.showInformationMessage("Copilot Quota Alert: Signed in via GitHub session.");
+            updateQuota();
+        }
+    } else {
+        const token = await vscode.window.showInputBox({
+            prompt: "Enter your GitHub Personal Access Token (needs 'read:user' or 'Plan:read' scope)",
+            password: true,
+            validateInput: (value) => {
+                const trimmed = value.trim();
+                if (trimmed === "") {
+                    return "Token cannot be empty.";
+                }
+                // Basic check for classic/fine-grained PAT formats
+                if (!/^(ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_]{36}$|^github_pat_[a-zA-Z0-9_]{82}$/.test(trimmed)) {
+                    return "Invalid GitHub token format.";
+                }
+                return null;
+            },
+        });
+
+        if (token !== undefined && token.trim() !== "") {
+            await secretStorage.store("copilot-quota-alert.githubToken", token.trim());
+            vscode.window.showInformationMessage("Copilot Quota Alert: PAT saved. Refreshing quota...");
+            updateQuota();
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -85,33 +144,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     // --- Register commands ---------------------------------------------------
 
-    // Set GitHub PAT (stored securely in VS Code's encrypted SecretStorage)
+    // Set GitHub Authentication (Session or PAT)
     context.subscriptions.push(
         vscode.commands.registerCommand(
             "copilot-quota-alert.setToken",
             async () => {
-                const token = await vscode.window.showInputBox({
-                    prompt:
-                        "Enter your GitHub Personal Access Token (needs copilot or Plan:read scope)",
-                    password: true,
-                    validateInput: (value) => {
-                        const trimmed = value.trim();
-                        if (trimmed === "") {
-                            return "Token cannot be empty.";
-                        }
-                        if (!/^(ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_]{36}$|^github_pat_[a-zA-Z0-9_]{82}$/.test(trimmed)) {
-                            return "Invalid GitHub token format.";
-                        }
-                        return null; // Valid
-                    }
-                });
-                if (token !== undefined && token.trim() !== "") {
-                    await secretStorage.store("copilot-quota-alert.githubToken", token.trim());
-                    vscode.window.showInformationMessage(
-                        "Copilot Quota Alert: Token saved. Refreshing quota..."
-                    );
-                    updateQuota();
-                }
+                await authenticate();
             }
         )
     );
@@ -190,7 +228,7 @@ async function updateQuota(): Promise<void> {
     showLoading();
 
     try {
-        const auth = await getToken();
+        const auth = await getToken(false);
 
         if (!auth) {
             showNoToken();
@@ -271,7 +309,7 @@ async function updateQuota(): Promise<void> {
         if (error instanceof TokenExpiredError) {
             // Only remove the stored PAT if that was actually what we used.
             // A session token cannot be deleted from our side.
-            const auth = await getToken();
+            const auth = await getToken(false);
             if (!auth || auth.source === "pat") {
                 await secretStorage.delete("copilot-quota-alert.githubToken");
             }

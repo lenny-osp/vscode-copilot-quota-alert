@@ -38,7 +38,7 @@ export function showNoToken(): void {
     statusBarItem.text = "$(key) Copilot Quota: Sign in";
     statusBarItem.tooltip =
         "No GitHub session or token found.\n" +
-        "Sign in to GitHub via VS Code (Accounts menu) or click to set a Personal Access Token.";
+        "Click to authenticate via VS Code GitHub session or Personal Access Token (PAT).";
     statusBarItem.color = undefined;
     statusBarItem.backgroundColor = undefined;
     statusBarItem.command = "copilot-quota-alert.setToken";

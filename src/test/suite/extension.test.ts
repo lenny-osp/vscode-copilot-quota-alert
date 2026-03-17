@@ -21,27 +21,35 @@ suite('Extension Test Suite', () => {
         assert.ok(commands.includes('copilot-quota-alert.checkQuota'));
     });
 
-    test('getSession is called with "github" provider on activation', async () => {
+    test('getSession is called with "github" provider and correct scopes on activation', async () => {
         // Spy on vscode.authentication.getSession to confirm it is invoked with
-        // the built-in GitHub provider as the first option in getToken().
+        // the built-in GitHub provider and the correct scopes in getToken().
+        let capturedScopes: readonly string[] = [];
         const calls: string[] = [];
         type GetSession = typeof vscode.authentication.getSession;
         const original: GetSession = vscode.authentication.getSession.bind(vscode.authentication);
         const stub: GetSession = ((providerId: string, scopes: readonly string[], options?: vscode.AuthenticationGetSessionOptions) => {
             calls.push(providerId);
+            capturedScopes = scopes;
             return original(providerId, scopes, options as vscode.AuthenticationGetSessionOptions & { silent: true });
         }) as unknown as GetSession;
 
         vscode.authentication.getSession = stub;
 
         try {
-            // Re-running the refresh command exercises getToken()
+            // Re-running the refresh command exercises getToken(false)
             await vscode.commands.executeCommand('copilot-quota-alert.refresh');
             // Allow any async work to settle
             await new Promise(r => setTimeout(r, 500));
+            
             assert.ok(
                 calls.includes('github'),
                 `Expected getSession to be called with "github", got: [${calls.join(', ')}]`
+            );
+            assert.deepStrictEqual(
+                capturedScopes,
+                ['read:user'],
+                `Expected scopes to be ['read:user'], got: ${JSON.stringify(capturedScopes)}`
             );
         } finally {
             vscode.authentication.getSession = original;
