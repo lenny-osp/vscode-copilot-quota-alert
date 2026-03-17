@@ -2,7 +2,7 @@
   "name": "copilot-quota-alert",
   "displayName": "Copilot Quota Alert",
   "description": "Monitor GitHub Copilot Premium Request usage and get alerts when exceeding your safe daily quota based on working days.",
-  "version": "0.0.6",
+  "version": "0.0.1",
   "publisher": "chihling",
   "engines": {
     "vscode": "^1.85.0"
