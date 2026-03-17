@@ -35,8 +35,10 @@ export function showNoToken(): void {
     if (!statusBarItem) {
         return;
     }
-    statusBarItem.text = "$(key) Copilot Quota: Set Token";
-    statusBarItem.tooltip = "Click to set your GitHub Personal Access Token";
+    statusBarItem.text = "$(key) Copilot Quota: Sign in";
+    statusBarItem.tooltip =
+        "No GitHub session or token found.\n" +
+        "Sign in to GitHub via VS Code (Accounts menu) or click to set a Personal Access Token.";
     statusBarItem.color = undefined;
     statusBarItem.backgroundColor = undefined;
     statusBarItem.command = "copilot-quota-alert.setToken";
@@ -90,7 +92,7 @@ export function showTokenExpired(): void {
  * Updates the status bar with the current quota summary.
  * Also triggers an alert dialog if the user is over budget.
  */
-export function updateStatusBar(summary: QuotaSummary): void {
+export function updateStatusBar(summary: QuotaSummary, authSource?: "session" | "pat"): void {
     if (!statusBarItem) {
         return;
     }
@@ -124,6 +126,10 @@ export function updateStatusBar(summary: QuotaSummary): void {
         summary.isOverBudget
             ? `⚠️ Over budget! Consider reducing usage.`
             : `✅ On track. You're within your daily budget.`,
+        ...(authSource ? [
+            ``,
+            `Auth: ${authSource === "session" ? "VS Code GitHub session" : "Personal Access Token"}`,
+        ] : []),
     ];
 
     statusBarItem.tooltip = tooltipLines.join("\n");
