@@ -130,6 +130,8 @@ export function updateStatusBar(summary: QuotaSummary, authSource?: "session" | 
             ``,
             `Auth: ${authSource === "session" ? "VS Code GitHub session" : "Personal Access Token"}`,
         ] : []),
+        ``,
+        `Version: ${vscode.extensions.getExtension('chihling.copilot-quota-alert')?.packageJSON.version ?? 'unknown'}`,
     ];
 
     statusBarItem.tooltip = tooltipLines.join("\n");
