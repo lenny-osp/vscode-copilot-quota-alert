@@ -59,6 +59,15 @@ suite('Status Bar Test Suite', () => {
         );
     });
 
+    test('tooltip contains "Version:" line', () => {
+        updateStatusBar(SAFE_SUMMARY, 'session');
+        const tooltip = item.tooltip as string;
+        assert.ok(
+            tooltip.includes('Version:'),
+            `Expected tooltip to contain version line, got:\n${tooltip}`
+        );
+    });
+
     test('tooltip does not contain "Auth:" when authSource is undefined', () => {
         updateStatusBar(SAFE_SUMMARY, undefined);
         const tooltip = item.tooltip as string;
