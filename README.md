@@ -9,6 +9,7 @@ A VS Code extension that monitors your GitHub Copilot Premium Request usage and 
 - **Status Bar Integration**: Visual indicator of your current usage vs. today's safe quota.
 - **Smart Alerts**: Color-coded status bar warning and once-per-day alert dialog when you exceed your safe quota.
 - **Configurable Thresholds**: Allow yourself some "headroom" or get alerted early by adjusting the threshold percentage.
+- **Flexible Authentication**: Automatically reuses your existing VS Code GitHub sign-in; a Personal Access Token can be used as a fallback.
 
 ## How it Works
 
@@ -21,22 +22,33 @@ The extension calculates your pacing using this logic:
 
 ## Setup
 
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-2. **Setup your Token**:
-   - Run the command: `Copilot Quota Alert: Set GitHub Token`
-   - Paste a **GitHub Personal Access Token (PAT)**.
-   - The PAT needs the `copilot` scope (for Classic PATs) or "Plan: read-only" (for Fine-grained tokens).
+The extension resolves a GitHub token in the following order:
+
+### Option A — VS Code GitHub session (recommended, zero-config)
+
+If you are already signed in to GitHub inside VS Code (e.g. via **GitHub Copilot**, **GitHub Pull Requests**, or any other extension that uses the built-in GitHub authentication provider), the extension will silently reuse that session. **No extra steps are required.**
+
+### Option B — Personal Access Token (manual fallback)
+
+Use this when no VS Code GitHub session is available:
+
+1. Run the command: `Copilot Quota Alert: Set GitHub Token`
+2. Paste a **GitHub Personal Access Token (PAT)**.
+   - **Classic PAT**: needs the `copilot` scope.
+   - **Fine-grained token**: needs the "Copilot Editor → read-only" (Plan: read-only) permission.
+
+The token is stored securely in VS Code's encrypted **SecretStorage** — it is never written to disk in plain text.
+
+> **Note**: If both a session and a stored PAT are present, the VS Code session is always preferred.
 
 ## Usage
 
 - **Status Bar Icon**:
   - `✅ Copilot: 15% / 25%` — Usage is within your daily budget.
   - `⚠️ Copilot: 30% / 25%` — Usage has exceeded today's safe quota.
+- **Hover Tooltip**: Shows a full breakdown — requests used, working day progress, safe quota, and the active **authentication method** (`VS Code GitHub session` or `Personal Access Token`).
 - **Click Status Bar**: Shows a detailed breakdown of your requests, working days, and current status.
-- **Refresh**: Automatically refreshes every 30 minutes, or use the `Copilot Quota Alert: Refresh Quota` command.
+- **Refresh**: Automatically refreshes every 5 minutes (configurable), or use the `Copilot Quota Alert: Refresh Quota` command.
 
 ## Settings
 
