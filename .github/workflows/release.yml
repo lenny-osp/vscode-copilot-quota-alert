@@ -20,6 +20,10 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm install
+      - name: Sync version with Tag
+        run: |
+          CLEAN_VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+          npm version $CLEAN_VERSION --no-git-tag-version
       - name: Build
         run: npm run build
       - name: Package Extension
