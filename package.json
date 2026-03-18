@@ -34,6 +34,10 @@
       {
         "command": "copilot-quota-alert.checkQuota",
         "title": "Copilot Quota Alert: Check Quota Details"
+      },
+      {
+        "command": "copilot-quota-alert.checkForUpdates",
+        "title": "Copilot Quota Alert: Check for Updates"
       }
     ],
     "configuration": {
@@ -55,6 +59,11 @@
           "default": 5,
           "minimum": 1,
           "description": "How often (in minutes) to automatically refresh the quota data."
+        },
+        "copilot-quota-alert.checkForUpdates": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check for new versions on GitHub when the extension activates."
         }
       }
     }

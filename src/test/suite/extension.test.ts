@@ -19,6 +19,7 @@ suite('Extension Test Suite', () => {
         assert.ok(commands.includes('copilot-quota-alert.setToken'));
         assert.ok(commands.includes('copilot-quota-alert.refresh'));
         assert.ok(commands.includes('copilot-quota-alert.checkQuota'));
+        assert.ok(commands.includes('copilot-quota-alert.checkForUpdates'));
     });
 
     test('getSession is called with "github" provider and correct scopes on activation', async () => {
