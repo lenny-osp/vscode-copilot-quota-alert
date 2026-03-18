@@ -10,6 +10,7 @@ A VS Code extension that monitors your GitHub Copilot Premium Request usage and 
 - **Smart Alerts**: Color-coded status bar warning and once-per-day alert dialog when you exceed your safe quota.
 - **Configurable Thresholds**: Allow yourself some "headroom" or get alerted early by adjusting the threshold percentage.
 - **Flexible Authentication**: Automatically reuses your existing VS Code GitHub sign-in; a Personal Access Token can be used as a fallback.
+- **Automatic Update Check**: Periodically checks for new releases on GitHub and notifies you when a newer version is available.
 
 ## How it Works
 
@@ -55,6 +56,7 @@ The token is stored securely in VS Code's encrypted **SecretStorage** — it is 
 - `copilot-quota-alert.thresholdPercent`: (Default: `0`) Positive values allow more usage before alerting; negative values alert you earlier.
 - `copilot-quota-alert.refreshIntervalMinutes`: (Default: `5`) Frequency of automatic updates.
 - `copilot-quota-alert.monthlyLimit`: (Default: `300`) Fallback limit if the API does not return your plan entitlement.
+- `copilot-quota-alert.checkForUpdates`: (Default: `true`) Automatically check for new versions on extension activation.
 
 ## Installation & Updates
 
