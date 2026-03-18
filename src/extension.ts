@@ -25,6 +25,7 @@ import {
     updateStatusBar,
     showQuotaDetails,
 } from "./status-bar";
+import { checkForUpdates } from "./update-checker";
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -172,6 +173,14 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Manual update check
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            "copilot-quota-alert.checkForUpdates",
+            () => checkForUpdates(context, true)
+        )
+    );
+
     // --- Listen for configuration changes -----------------------------------
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
@@ -185,6 +194,11 @@ export function activate(context: vscode.ExtensionContext) {
     // --- Initial fetch & auto-refresh timer ----------------------------------
     updateQuota();
     startRefreshTimer();
+
+    // --- Check for extension updates (fire-and-forget) -----------------------
+    checkForUpdates(context).catch((err) =>
+        console.warn("Copilot Quota Alert: update check failed:", err)
+    );
 }
 
 // ---------------------------------------------------------------------------
