@@ -58,7 +58,7 @@ suite('Quota Calculator Test Suite', () => {
         // Working day of March 13th: 10 (2,3,4,5,6, 9,10,11,12,13)
         // Safe quota: 10 / 22 * 100 = 45.45...%
 
-        const summary = quotaCalculator.computeQuotaSummary(100, 300, 0, now);
+        const summary = quotaCalculator.computeQuotaSummary(100, 300, 0, 0, now);
 
         assert.strictEqual(summary.totalWorkingDays, 22);
         assert.strictEqual(summary.currentWorkingDay, 10);
@@ -66,5 +66,22 @@ suite('Quota Calculator Test Suite', () => {
         assert.strictEqual(summary.monthlyLimit, 300);
         assert.strictEqual(Math.round(summary.usagePercent), 33); // 100/300 = 33.33%
         assert.strictEqual(summary.isOverBudget, false); // 33.33% < 45.45%
+    });
+
+    test('computeQuotaSummary logic check - with extra holiday', () => {
+        const now = new Date(2026, 2, 13); // Friday, March 13th 2026
+        // Total working days in March 2026: 22
+        // Extra holidays: 2 -> Total working days: 20
+        // Working day of March 13th: 10
+        // Safe quota: 10 / 20 * 100 = 50%
+
+        const summary = quotaCalculator.computeQuotaSummary(100, 300, 0, 2, now);
+
+        assert.strictEqual(summary.totalWorkingDays, 20);
+        assert.strictEqual(summary.currentWorkingDay, 10);
+        assert.strictEqual(summary.usedRequests, 100);
+        assert.strictEqual(summary.monthlyLimit, 300);
+        assert.strictEqual(Math.round(summary.usagePercent), 33); // 100/300 = 33.33%
+        assert.strictEqual(summary.isOverBudget, false); // 33.33% < 50%
     });
 });

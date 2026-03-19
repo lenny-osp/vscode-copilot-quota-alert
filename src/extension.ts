@@ -37,6 +37,8 @@ let lastSummary:
     | ReturnType<typeof computeQuotaSummary>
     | undefined;
 
+let extensionContext: vscode.ExtensionContext;
+
 const DEFAULT_MONTHLY_LIMIT = 300;
 
 // ---------------------------------------------------------------------------
@@ -140,6 +142,7 @@ async function authenticate(): Promise<void> {
 export function activate(context: vscode.ExtensionContext) {
     console.log("Copilot Quota Alert activated");
 
+    extensionContext = context;
     secretStorage = context.secrets;
     createStatusBarItem(context);
 
@@ -227,6 +230,26 @@ function restartRefreshTimer(): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * Checks if a new month has started since the last check, and if so,
+ * resets the extraHolidayCount to 0.
+ */
+async function checkAndResetHolidayCount(context: vscode.ExtensionContext): Promise<void> {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+    const lastResetMonth = context.globalState.get<string>("lastHolidayResetMonth");
+
+    if (lastResetMonth !== currentMonthKey) {
+        const config = vscode.workspace.getConfiguration("copilot-quota-alert");
+        const extraHolidayCount = config.get<number>("extraHolidayCount");
+
+        if (extraHolidayCount !== undefined && extraHolidayCount !== 0) {
+            await config.update("extraHolidayCount", 0, vscode.ConfigurationTarget.Global);
+        }
+        await context.globalState.update("lastHolidayResetMonth", currentMonthKey);
+    }
+}
+
+/**
  * Main refresh cycle: fetch usage → calculate → update UI.
  *
  * Data-source strategy:
@@ -242,6 +265,8 @@ async function updateQuota(): Promise<void> {
     showLoading();
 
     try {
+        await checkAndResetHolidayCount(extensionContext);
+
         const auth = await getToken(false);
 
         if (!auth) {
@@ -310,11 +335,13 @@ async function updateQuota(): Promise<void> {
         // --- Calculate & display -----------------------------------------------
         const config = vscode.workspace.getConfiguration("copilot-quota-alert");
         const thresholdPercent = config.get<number>("thresholdPercent") ?? 0;
+        const extraHolidayCount = config.get<number>("extraHolidayCount") ?? 0;
 
         const summary = computeQuotaSummary(
             usage.usedRequests,
             usage.monthlyLimit,
-            thresholdPercent
+            thresholdPercent,
+            extraHolidayCount
         );
 
         lastSummary = summary;
