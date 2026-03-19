@@ -162,13 +162,15 @@ export function computeQuotaSummary(
     usedRequests: number,
     monthlyLimit: number,
     thresholdPercent: number,
+    extraHolidayCount: number = 0,
     now: Date = new Date()
 ): QuotaSummary {
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    const totalWorkingDays = getWorkingDaysInMonth(year, month);
-    const currentWorkingDay = getWorkingDayOfMonth(now);
+    const baseTotalWorkingDays = getWorkingDaysInMonth(year, month);
+    const totalWorkingDays = Math.max(1, baseTotalWorkingDays - extraHolidayCount);
+    const currentWorkingDay = Math.min(getWorkingDayOfMonth(now), totalWorkingDays);
     const dailyQuotaPercent = calculateDailyQuotaPercent(totalWorkingDays);
     const safeQuotaPercent = calculateSafeQuotaPercent(
         totalWorkingDays,

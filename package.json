@@ -48,6 +48,12 @@
           "default": 0,
           "description": "Alert threshold offset in percentage points. Positive = allow usage above safe quota by this amount before alerting. Negative = alert before reaching safe quota. Example: 5 means alert only when usage exceeds safe quota by 5%."
         },
+        "copilot-quota-alert.extraHolidayCount": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Number of extra holidays to deduct from the total working days this month. Automatically resets to 0 at the start of a new month."
+        },
         "copilot-quota-alert.monthlyLimit": {
           "type": "number",
           "default": 300,
