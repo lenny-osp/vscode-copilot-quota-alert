@@ -20,8 +20,14 @@ const MARKETPLACE_URL =
 const DISMISSED_VERSION_KEY = "copilot-quota-alert.lastDismissedVersion";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types and State
 // ---------------------------------------------------------------------------
+
+let latestDiscoveredVersion: string | undefined;
+
+export function getLatestDiscoveredVersion(): string | undefined {
+    return latestDiscoveredVersion;
+}
 
 export interface GitHubRelease {
     tag_name: string;
@@ -139,6 +145,7 @@ export async function checkForUpdates(
     }
 
     const latestVersion = release.tag_name;
+    latestDiscoveredVersion = latestVersion;
 
     if (!isNewerVersion(currentVersion, latestVersion)) {
         if (manual) {

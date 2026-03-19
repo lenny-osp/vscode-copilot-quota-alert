@@ -7,6 +7,7 @@
 
 import * as vscode from "vscode";
 import type { QuotaSummary } from "./quota-calculator";
+import { getLatestDiscoveredVersion, isNewerVersion } from "./update-checker";
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -131,8 +132,15 @@ export function updateStatusBar(summary: QuotaSummary, authSource?: "session" | 
             `Auth: ${authSource === "session" ? "VS Code GitHub session" : "Personal Access Token"}`,
         ] : []),
         ``,
-        `Version: ${vscode.extensions.getExtension('chihling.copilot-quota-alert')?.packageJSON.version ?? 'unknown'}`,
     ];
+
+    const currentVersion = vscode.extensions.getExtension('chihling.copilot-quota-alert')?.packageJSON.version ?? 'unknown';
+    const latestVersion = getLatestDiscoveredVersion();
+    let versionText = `Version: ${currentVersion}`;
+    if (latestVersion && isNewerVersion(currentVersion, latestVersion)) {
+        versionText += ` (New version v${latestVersion.replace(/^v/i, '')} available!)`;
+    }
+    tooltipLines.push(versionText);
 
     statusBarItem.tooltip = tooltipLines.join("\n");
     statusBarItem.command = "copilot-quota-alert.checkQuota";
