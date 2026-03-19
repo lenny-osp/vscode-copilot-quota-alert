@@ -144,6 +144,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     extensionContext = context;
     secretStorage = context.secrets;
+
+    // Ensure the setting is explicitly visible in settings.json
+    const config = vscode.workspace.getConfiguration("copilot-quota-alert");
+    if (config.inspect<number>("extraHolidayCount")?.globalValue === undefined) {
+        config.update("extraHolidayCount", 0, vscode.ConfigurationTarget.Global);
+    }
+
     createStatusBarItem(context);
 
     // --- Register commands ---------------------------------------------------
