@@ -199,3 +199,33 @@ export function showQuotaDetails(summary: QuotaSummary): void {
         vscode.window.showInformationMessage(message);
     }
 }
+
+/**
+ * Shows the daily usage report for the current month.
+ */
+export function showDailyUsageReport(context: vscode.ExtensionContext): void {
+    const dailyUsage = context.globalState.get<Record<string, number>>("copilot-quota-alert.dailyUsage");
+    
+    if (!dailyUsage || Object.keys(dailyUsage).length === 0) {
+        vscode.window.showInformationMessage("No daily usage data recorded for the current month yet.");
+        return;
+    }
+
+    const sortedDates = Object.keys(dailyUsage).sort();
+    const messageLines = ["Daily Quota Usage (Current Month):", ""];
+
+    let previousUsage = 0;
+    for (let i = 0; i < sortedDates.length; i++) {
+        const date = sortedDates[i];
+        const usage = dailyUsage[date];
+        let line = `- ${date}: ${usage} requests`;
+        if (i > 0) {
+            const diff = usage - previousUsage;
+            line += ` (+${diff})`;
+        }
+        messageLines.push(line);
+        previousUsage = usage;
+    }
+
+    vscode.window.showInformationMessage(messageLines.join("\n"), { modal: true });
+}

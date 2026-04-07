@@ -4,6 +4,10 @@
   "description": "Monitor GitHub Copilot Premium Request usage and get alerts when exceeding your safe daily quota based on working days.",
   "version": "1.0.4",
   "publisher": "chihling",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lenny-osp/vscode-copilot-quota-alert.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -38,6 +42,10 @@
       {
         "command": "copilot-quota-alert.checkForUpdates",
         "title": "Copilot Quota Alert: Check for Updates"
+      },
+      {
+        "command": "copilot-quota-alert.showDailyUsageReport",
+        "title": "Copilot Quota Alert: Show Daily Usage Report"
       }
     ],
     "configuration": {

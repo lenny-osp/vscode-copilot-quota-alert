@@ -24,6 +24,7 @@ import {
     showTokenExpired,
     updateStatusBar,
     showQuotaDetails,
+    showDailyUsageReport,
 } from "./status-bar";
 import { checkForUpdates } from "./update-checker";
 
@@ -183,6 +184,13 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Show daily usage report
+    context.subscriptions.push(
+        vscode.commands.registerCommand("copilot-quota-alert.showDailyUsageReport", () => {
+            showDailyUsageReport(context);
+        })
+    );
+
     // Manual update check
     context.subscriptions.push(
         vscode.commands.registerCommand(
@@ -238,9 +246,9 @@ function restartRefreshTimer(): void {
 
 /**
  * Checks if a new month has started since the last check, and if so,
- * resets the extraHolidayCount to 0.
+ * resets the extraHolidayCount to 0 and clears the daily usage state.
  */
-async function checkAndResetHolidayCount(context: vscode.ExtensionContext): Promise<void> {
+async function checkAndResetMonthlyState(context: vscode.ExtensionContext): Promise<void> {
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
     const lastResetMonth = context.globalState.get<string>("lastHolidayResetMonth");
@@ -252,6 +260,7 @@ async function checkAndResetHolidayCount(context: vscode.ExtensionContext): Prom
         if (extraHolidayCount !== undefined && extraHolidayCount !== 0) {
             await config.update("extraHolidayCount", 0, vscode.ConfigurationTarget.Global);
         }
+        await context.globalState.update("copilot-quota-alert.dailyUsage", undefined);
         await context.globalState.update("lastHolidayResetMonth", currentMonthKey);
     }
 }
@@ -272,7 +281,7 @@ async function updateQuota(): Promise<void> {
     showLoading();
 
     try {
-        await checkAndResetHolidayCount(extensionContext);
+        await checkAndResetMonthlyState(extensionContext);
 
         const auth = await getToken(false);
 
@@ -350,6 +359,12 @@ async function updateQuota(): Promise<void> {
             thresholdPercent,
             extraHolidayCount
         );
+
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const dailyUsage = extensionContext.globalState.get<Record<string, number>>("copilot-quota-alert.dailyUsage") || {};
+        dailyUsage[dateStr] = usage.usedRequests;
+        await extensionContext.globalState.update("copilot-quota-alert.dailyUsage", dailyUsage);
 
         lastSummary = summary;
         updateStatusBar(summary, source);
