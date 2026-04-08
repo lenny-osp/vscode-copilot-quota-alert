@@ -363,6 +363,14 @@ async function updateQuota(): Promise<void> {
         const now = new Date();
         const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const dailyUsage = extensionContext.globalState.get<Record<string, number>>("copilot-quota-alert.dailyUsage") || {};
+        
+        if (Object.keys(dailyUsage).length === 0) {
+            const yesterday = new Date();
+            yesterday.setDate(now.getDate() - 1);
+            const yDateStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+            dailyUsage[yDateStr] = usage.usedRequests;
+        }
+
         dailyUsage[dateStr] = usage.usedRequests;
         await extensionContext.globalState.update("copilot-quota-alert.dailyUsage", dailyUsage);
 

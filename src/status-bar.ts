@@ -211,20 +211,66 @@ export function showDailyUsageReport(context: vscode.ExtensionContext): void {
         return;
     }
 
+    const config = vscode.workspace.getConfiguration("copilot-quota-alert");
+    const monthlyLimit = config.get<number>("monthlyLimit") ?? 300;
+
     const sortedDates = Object.keys(dailyUsage).sort();
+    const augmentedUsage: Record<string, number> = { ...dailyUsage };
+
+    const firstDateStr = sortedDates[0];
+    const [fy, fm, fd] = firstDateStr.split('-').map(Number);
+    const baselineDateObj = new Date(fy, fm - 1, fd);
+    
+    // Determine end date
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const lastRecordedStr = sortedDates[sortedDates.length - 1];
+    const endDateStr = lastRecordedStr > todayStr ? lastRecordedStr : todayStr;
+    const [ey, em, ed] = endDateStr.split('-').map(Number);
+    const endDateObj = new Date(ey, em - 1, ed);
+
     const messageLines = ["Daily Quota Usage (Current Month):", ""];
 
-    let previousUsage = 0;
-    for (let i = 0; i < sortedDates.length; i++) {
-        const date = sortedDates[i];
-        const usage = dailyUsage[date];
-        let line = `- ${date}: ${usage} requests`;
-        if (i > 0) {
-            const diff = usage - previousUsage;
-            line += ` (+${diff})`;
+    let processDateObj = new Date(baselineDateObj);
+    let previousAbsolute = 0;
+    
+    // We already established a baseline from extension.ts which is the first item in the list, 
+    // it will just naturally be calculated. Wait, if extension.ts sets baseline to `04-07`, 
+    // `firstDateStr` is `04-07`. When we process `04-07`, `previousAbsolute` starts at 0. 
+    // But `augmentedUsage[firstDateStr]` is 60. So `04-07` usage is 60 - 0 = 60. This matches exactly!
+    
+    let lastKnownValue = 0; // We will pick up from the first element
+    if (augmentedUsage[firstDateStr] !== undefined) {
+        // Technically, `previousAbsolute` is 0, so the first ever baseline's usage is its full total.
+    }
+
+    // But what if the month started normally and dailyUsage started on 04-01?
+    // Then 04-01 will show its full total usage, since previousAbsolute is 0. That's also correct for 04-01!
+
+    while (processDateObj <= endDateObj) {
+        const cStr = `${processDateObj.getFullYear()}-${String(processDateObj.getMonth() + 1).padStart(2, '0')}-${String(processDateObj.getDate()).padStart(2, '0')}`;
+        
+        if (augmentedUsage[cStr] !== undefined) {
+             lastKnownValue = augmentedUsage[cStr];
         }
-        messageLines.push(line);
-        previousUsage = usage;
+        
+        const diff = lastKnownValue - previousAbsolute;
+        const pct = (diff / monthlyLimit) * 100;
+        
+        const mm = String(processDateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(processDateObj.getDate()).padStart(2, '0');
+        const displayDate = `${mm}-${dd}`;
+        
+        // Remove trailing .0
+        let pctStr = pct.toFixed(1);
+        if (pctStr.endsWith(".0")) {
+             pctStr = Math.round(pct).toString();
+        }
+        
+        messageLines.push(`${displayDate}: ${pctStr}%`);
+        
+        previousAbsolute = lastKnownValue;
+        processDateObj.setDate(processDateObj.getDate() + 1);
     }
 
     vscode.window.showInformationMessage(messageLines.join("\n"), { modal: true });
