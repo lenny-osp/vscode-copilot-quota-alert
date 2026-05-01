@@ -98,7 +98,7 @@
     "@types/glob": "^9.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.5.1",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.118.0",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.0.0",
     "assert": "^2.1.0",
