@@ -78,6 +78,8 @@ See GitHub's documentation for [usage-based billing for individuals](https://doc
 
 ## Installation & Updates
 
+Requires Visual Studio Code 1.120.0 or later.
+
 ### Option 1: GitHub Releases (Recommended)
 1. Go to the [Releases](https://github.com/lenny-osp/vscode-copilot-quota-alert/releases) page.
 2. Download the latest `.vsix` file (e.g., `copilot-quota-alert-v2.0.0.vsix`).

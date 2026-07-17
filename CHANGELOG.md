@@ -8,6 +8,11 @@ All notable changes to Copilot Quota Alert are documented here.
 
 - Use GitHub's live `credits_used` and total AI Credit entitlement (including any finite additional-usage entitlement) instead of applying the 1,500-credit fallback to live quota snapshots.
 - Open the latest GitHub release's `.vsix` asset from update notifications instead of the VS Code Marketplace.
+- Align the VS Code 1.120 engine requirement and API typings so the release pipeline can package the extension successfully.
+
+### Changed
+
+- Require Visual Studio Code 1.120.0 or later.
 
 ## 2.0.0 - 2026-07-17
 
