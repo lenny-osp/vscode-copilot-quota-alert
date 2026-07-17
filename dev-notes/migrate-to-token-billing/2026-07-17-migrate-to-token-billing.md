@@ -62,7 +62,12 @@
 - Scanned tracked and new source/documentation files for credential patterns; the only match is the intentional PAT-format validation regex.
 - Confirmed no stale request API endpoint, request-domain field, or old API-version reference remains. Legacy terminology appears only in migration notes, explicit rejection tests, and explanatory comments.
 - Final reviewed scope includes production code, tests, user/developer documentation, release metadata, package exclusions, changelog, and this audit log.
-- Next: commit the reviewed scope, publish the branch, open and validate the PR, merge, and release v2.0.0.
+- Committed the reviewed scope as `753c5ac` and pushed `agent/migrate-ai-credit-billing`.
+- Opened ready-for-review PR #41. Its build/lint/compile job and Linux test job passed; macOS failed before tests because VS Code's IPC socket exceeded macOS's 103-character path limit in the long Actions checkout. Windows was canceled by matrix fail-fast.
+- CI-fix decision: give `@vscode/test-electron` a short, unique `--user-data-dir` under the OS temp directory and remove it after the test host exits. This targets the observed runner-only infrastructure failure without changing application behavior.
+- Verified the test-electron `launchArgs` contract in the installed official package, including that an explicit `--user-data-dir` suppresses its long default path.
+- `npm run lint` and the complete local extension-host suite (38 passing) succeeded with the short temporary profile and cleanup logic.
+- Next: publish the CI fix, wait for all PR checks, merge, and release v2.0.0.
 
 ## Remaining Work
 
