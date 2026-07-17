@@ -1,8 +1,8 @@
 {
   "name": "copilot-quota-alert",
   "displayName": "Copilot Quota Alert",
-  "description": "Monitor GitHub Copilot Premium Request usage and get alerts when exceeding your safe daily quota based on working days.",
-  "version": "1.0.4",
+  "description": "Monitor token-priced GitHub Copilot AI Credit usage and get alerts when exceeding your safe daily quota based on working days.",
+  "version": "2.0.0",
   "publisher": "chihling",
   "repository": {
     "type": "git",
@@ -18,7 +18,8 @@
     "copilot",
     "github",
     "quota",
-    "premium",
+    "tokens",
+    "ai-credits",
     "usage"
   ],
   "activationEvents": [
@@ -62,11 +63,11 @@
           "minimum": 0,
           "description": "Number of extra holidays to deduct from the total working days this month. Automatically resets to 0 at the start of a new month."
         },
-        "copilot-quota-alert.monthlyLimit": {
+        "copilot-quota-alert.monthlyAiCreditLimit": {
           "type": "number",
-          "default": 300,
-          "minimum": 1,
-          "description": "Monthly premium request limit for your Copilot plan. Used as fallback when the API doesn't provide quota info. Common values: 50 (Free), 300 (Pro), 1500 (Pro+)."
+          "default": 1500,
+          "exclusiveMinimum": 0,
+          "description": "Total monthly GitHub AI Credit allowance used to calculate quota percentage. Current individual-plan totals: 1500 (Pro), 7000 (Pro+), 20000 (Max)."
         },
         "copilot-quota-alert.refreshIntervalMinutes": {
           "type": "number",

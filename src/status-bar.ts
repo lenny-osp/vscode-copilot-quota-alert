@@ -14,12 +14,18 @@ let statusBarItem: vscode.StatusBarItem | undefined;
 // Track the last alert date so we only show the warning dialog once per day
 let lastAlertDate: string | undefined;
 
+/** Formats fractional AI credits without unnecessary trailing zeroes. */
+function formatAiCredits(value: number): string {
+    return value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 /**
  * Creates and returns the status bar item. Call once during activation.
  */
 export function createStatusBarItem(
     context: vscode.ExtensionContext
 ): vscode.StatusBarItem {
+    disposeStatusBarItem();
     statusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Right,
         100
@@ -27,6 +33,12 @@ export function createStatusBarItem(
     context.subscriptions.push(statusBarItem);
     statusBarItem.show();
     return statusBarItem;
+}
+
+/** Disposes the current status bar item and clears module state. */
+export function disposeStatusBarItem(): void {
+    statusBarItem?.dispose();
+    statusBarItem = undefined;
 }
 
 /**
@@ -115,9 +127,9 @@ export function updateStatusBar(summary: QuotaSummary, authSource?: "session" | 
 
     // Build detailed tooltip
     const tooltipLines = [
-        `Copilot Premium Request Usage`,
+        `GitHub Copilot AI Credit Usage`,
         `───────────────────────────────`,
-        `Used: ${summary.usedRequests} / ${summary.monthlyLimit} requests`,
+        `Used: ${formatAiCredits(summary.usedAiCredits)} / ${formatAiCredits(summary.monthlyAiCreditLimit)} AI credits`,
         `Usage: ${usagePct}%`,
         ``,
         `Working day: ${summary.currentWorkingDay} of ${summary.totalWorkingDays}`,
@@ -168,7 +180,7 @@ function showAlertDialog(summary: QuotaSummary): void {
     vscode.window.showWarningMessage(
         `Copilot Quota Alert: Your usage (${usagePct}%) exceeds today's safe quota (${safePct}%). ` +
         `You're on working day ${summary.currentWorkingDay} of ${summary.totalWorkingDays}. ` +
-        `Consider reducing premium request usage to stay within budget.`,
+        `Consider reducing token-billed Copilot usage to stay within budget.`,
         "OK",
         "Don't alert today"
     );
@@ -187,7 +199,7 @@ export function showQuotaDetails(summary: QuotaSummary): void {
     const message = [
         `${status}`,
         ``,
-        `Usage: ${summary.usedRequests} / ${summary.monthlyLimit} requests (${usagePct}%)`,
+        `Usage: ${formatAiCredits(summary.usedAiCredits)} / ${formatAiCredits(summary.monthlyAiCreditLimit)} AI credits (${usagePct}%)`,
         `Working Day: ${summary.currentWorkingDay} of ${summary.totalWorkingDays}`,
         `Daily Quota: ${dailyPct}% per working day`,
         `Safe Quota for Today: ${safePct}%`,
@@ -204,7 +216,9 @@ export function showQuotaDetails(summary: QuotaSummary): void {
  * Shows the daily usage report for the current month.
  */
 export function showDailyUsageReport(context: vscode.ExtensionContext): void {
-    const dailyUsage = context.globalState.get<Record<string, number>>("copilot-quota-alert.dailyUsage");
+    const dailyUsage = context.globalState.get<Record<string, number>>(
+        "copilot-quota-alert.dailyAiCreditUsage"
+    );
     
     if (!dailyUsage || Object.keys(dailyUsage).length === 0) {
         vscode.window.showInformationMessage("No daily usage data recorded for the current month yet.");
@@ -212,7 +226,8 @@ export function showDailyUsageReport(context: vscode.ExtensionContext): void {
     }
 
     const config = vscode.workspace.getConfiguration("copilot-quota-alert");
-    const monthlyLimit = config.get<number>("monthlyLimit") ?? 300;
+    const monthlyAiCreditLimit =
+        config.get<number>("monthlyAiCreditLimit") ?? 1_500;
 
     const sortedDates = Object.keys(dailyUsage).sort();
     const augmentedUsage: Record<string, number> = { ...dailyUsage };
@@ -229,7 +244,7 @@ export function showDailyUsageReport(context: vscode.ExtensionContext): void {
     const [ey, em, ed] = endDateStr.split('-').map(Number);
     const endDateObj = new Date(ey, em - 1, ed);
 
-    const messageLines = ["Daily Quota Usage (Current Month):", ""];
+    const messageLines = ["Daily AI Credit Usage (Current Month):", ""];
 
     let processDateObj = new Date(baselineDateObj);
     let previousAbsolute = 0;
@@ -255,7 +270,7 @@ export function showDailyUsageReport(context: vscode.ExtensionContext): void {
         }
         
         const diff = lastKnownValue - previousAbsolute;
-        const pct = (diff / monthlyLimit) * 100;
+        const pct = (diff / monthlyAiCreditLimit) * 100;
         
         const mm = String(processDateObj.getMonth() + 1).padStart(2, '0');
         const dd = String(processDateObj.getDate()).padStart(2, '0');

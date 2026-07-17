@@ -1,9 +1,11 @@
 /**
- * GitHub API integration for fetching Copilot premium request usage.
+ * GitHub API integration for fetching Copilot GitHub AI Credit usage.
  *
  * Data-source strategy:
- * 1. Internal API (`/copilot_internal/user`) — near real-time, returns entitlement + remaining
- * 2. Billing API (`/users/{username}/settings/billing/usage/summary`) — official fallback
+ * 1. Internal API (`/copilot_internal/user`) — near real-time, but only
+ *    accepted when GitHub explicitly marks the snapshot as token-based billing.
+ * 2. AI credit billing API (`/users/{username}/settings/billing/ai_credit/usage`)
+ *    — official fallback.
  */
 
 // ---------------------------------------------------------------------------
@@ -12,8 +14,8 @@
 
 /** Represents fetched Copilot usage regardless of which API provided it. */
 export interface CopilotUsage {
-    usedRequests: number;
-    monthlyLimit: number;
+    usedAiCredits: number;
+    monthlyAiCreditLimit: number;
     /** Start of the current billing period (UTC midnight). */
     periodStart: Date;
     /** End of the current billing period (UTC midnight). */
@@ -47,8 +49,8 @@ export class NotFoundError extends Error {
 const GITHUB_API_HEADERS = (token: string) => ({
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "vscode-copilot-quota-alert/0.1.0",
+    "X-GitHub-Api-Version": "2026-03-10",
+    "User-Agent": "vscode-copilot-quota-alert/2.0.0",
 });
 
 /** Maps common HTTP error codes to typed errors. */
@@ -79,67 +81,149 @@ export async function fetchUsername(token: string): Promise<string> {
 }
 
 /**
- * Fetches Copilot usage from the **internal** API (near real-time).
+ * Returns the UTC calendar-month billing period containing `now`.
+ * GitHub AI Credit allowances reset at 00:00 UTC on the first of each month.
+ */
+function getUtcBillingPeriod(now: Date): {
+    periodStart: Date;
+    periodEnd: Date;
+} {
+    return {
+        periodStart: new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+        ),
+        periodEnd: new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+        ),
+    };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Fetches AI credit usage from the **internal** API (near real-time).
  * Endpoint: GET /copilot_internal/user
  *
- * This is an undocumented GitHub API that returns accurate quota snapshots
- * including `premium_interactions` with remaining/entitlement data and the
- * billing period reset date.
+ * GitHub retained the historical `premium_interactions` response key after
+ * changing billing models. The values are interpreted as AI credits only when
+ * `token_based_billing` is explicitly true, preventing legacy premium request
+ * counts from being mislabeled as credits.
  */
-export async function fetchCopilotInternal(
-    token: string
+export async function fetchCopilotInternalAiCredits(
+    token: string,
+    monthlyAiCreditLimit: number
 ): Promise<CopilotUsage> {
     const url = "https://api.github.com/copilot_internal/user";
     const response = await fetch(url, { headers: GITHUB_API_HEADERS(token) });
     throwOnHttpError(response, url);
 
-    const data = (await response.json()) as any;
+    const data = (await response.json()) as {
+        token_based_billing?: boolean;
+        quota_reset_date_utc?: string;
+        quota_snapshots?: {
+            premium_interactions?: {
+                token_based_billing?: boolean;
+                entitlement?: number;
+                quota_remaining?: number;
+                remaining?: number;
+                overage_count?: number;
+                unlimited?: boolean;
+                quota_reset_at?: number;
+            };
+        };
+    };
     const premium = data.quota_snapshots?.premium_interactions;
-    if (!premium || premium.unlimited) {
-        throw new Error("No premium_interactions quota in internal API response");
+    const isTokenBased =
+        data.token_based_billing === true || premium?.token_based_billing === true;
+
+    if (!premium || !isTokenBased) {
+        throw new Error("Internal API did not return token-based AI Credit usage");
+    }
+    if (premium.unlimited || !isFiniteNumber(premium.entitlement) || premium.entitlement <= 0) {
+        throw new Error("Internal API did not return a finite AI Credit allowance");
     }
 
-    const entitlement = premium.entitlement as number;
-    const remaining = premium.quota_remaining as number;
-    const periodEnd = new Date(data.quota_reset_date_utc);
-    const periodStart = new Date(periodEnd);
-    periodStart.setUTCMonth(periodStart.getUTCMonth() - 1);
+    const remaining = isFiniteNumber(premium.quota_remaining)
+        ? premium.quota_remaining
+        : premium.remaining;
+    if (!isFiniteNumber(remaining)) {
+        throw new Error("Internal API did not return remaining AI Credits");
+    }
+
+    const overage = isFiniteNumber(premium.overage_count)
+        ? Math.max(0, premium.overage_count)
+        : 0;
+    const usedAiCredits = Math.max(
+        0,
+        premium.entitlement - remaining + overage
+    );
+
+    const resetValue = data.quota_reset_date_utc
+        ?? (isFiniteNumber(premium.quota_reset_at)
+            ? new Date(premium.quota_reset_at * 1000).toISOString()
+            : undefined);
+    const parsedPeriodEnd = resetValue ? new Date(resetValue) : undefined;
+    const fallbackPeriod = getUtcBillingPeriod(new Date());
+    const periodEnd = parsedPeriodEnd && !Number.isNaN(parsedPeriodEnd.getTime())
+        ? parsedPeriodEnd
+        : fallbackPeriod.periodEnd;
+    const periodStart = new Date(
+        Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth() - 1, 1)
+    );
 
     return {
-        usedRequests: entitlement - remaining,
-        monthlyLimit: entitlement,
+        usedAiCredits,
+        monthlyAiCreditLimit,
         periodStart,
         periodEnd,
     };
 }
 
 /**
- * Fetches Copilot usage from the **billing** API (official, may lag behind).
- * Endpoint: GET /users/{username}/settings/billing/usage/summary
+ * Fetches Copilot AI credit usage from the official billing API.
+ * Endpoint: GET /users/{username}/settings/billing/ai_credit/usage
+ *
+ * Each usage item represents a model or product slice. `grossQuantity` is the
+ * amount consumed before included-credit discounts, so all items must be
+ * summed to measure allowance consumption.
  */
-export async function fetchCopilotBilling(
+export async function fetchCopilotAiCreditBilling(
     token: string,
     username: string,
-    monthlyLimit: number
+    monthlyAiCreditLimit: number,
+    now: Date = new Date()
 ): Promise<CopilotUsage> {
-    const url = `https://api.github.com/users/${username}/settings/billing/usage/summary`;
-    const response = await fetch(url, { headers: GITHUB_API_HEADERS(token) });
-    throwOnHttpError(response, url);
-
-    const data = (await response.json()) as any;
-    const copilotItem = data.usageItems?.find(
-        (item: any) => item.sku === "copilot_premium_request"
+    const encodedUsername = encodeURIComponent(username);
+    const url = new URL(
+        `https://api.github.com/users/${encodedUsername}/settings/billing/ai_credit/usage`
     );
-    const usedRequests = copilotItem ? copilotItem.grossQuantity : 0;
+    url.searchParams.set("year", String(now.getUTCFullYear()));
+    url.searchParams.set("month", String(now.getUTCMonth() + 1));
+    const response = await fetch(url.toString(), {
+        headers: GITHUB_API_HEADERS(token),
+    });
+    throwOnHttpError(response, url.toString());
 
-    // Billing API doesn't expose period dates — assume calendar month (UTC)
-    const now = new Date();
-    const periodStart = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
-    );
-    const periodEnd = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+    const data = (await response.json()) as {
+        usageItems?: Array<{ grossQuantity?: number }>;
+    };
+    const usedAiCredits = (data.usageItems ?? []).reduce(
+        (total, item) => total + (
+            isFiniteNumber(item.grossQuantity)
+                ? Math.max(0, item.grossQuantity)
+                : 0
+        ),
+        0
     );
 
-    return { usedRequests, monthlyLimit, periodStart, periodEnd };
+    const { periodStart, periodEnd } = getUtcBillingPeriod(now);
+
+    return {
+        usedAiCredits,
+        monthlyAiCreditLimit,
+        periodStart,
+        periodEnd,
+    };
 }

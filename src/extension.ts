@@ -1,15 +1,15 @@
 /**
  * Copilot Quota Alert – VS Code Extension
  *
- * Monitors GitHub Copilot Premium Request usage and alerts the user
+ * Monitors GitHub Copilot AI Credit usage and alerts the user
  * when their consumption exceeds a calculated "safe daily quota"
  * based on working days in the month.
  */
 
 import * as vscode from "vscode";
 import {
-    fetchCopilotInternal,
-    fetchCopilotBilling,
+    fetchCopilotInternalAiCredits,
+    fetchCopilotAiCreditBilling,
     fetchUsername,
     TokenExpiredError,
     NotFoundError,
@@ -25,6 +25,7 @@ import {
     updateStatusBar,
     showQuotaDetails,
     showDailyUsageReport,
+    disposeStatusBarItem,
 } from "./status-bar";
 import { checkForUpdates } from "./update-checker";
 
@@ -40,7 +41,7 @@ let lastSummary:
 
 let extensionContext: vscode.ExtensionContext;
 
-const DEFAULT_MONTHLY_LIMIT = 300;
+const DEFAULT_MONTHLY_AI_CREDIT_LIMIT = 1_500;
 
 // ---------------------------------------------------------------------------
 // Authentication
@@ -260,7 +261,10 @@ async function checkAndResetMonthlyState(context: vscode.ExtensionContext): Prom
         if (extraHolidayCount !== undefined && extraHolidayCount !== 0) {
             await config.update("extraHolidayCount", 0, vscode.ConfigurationTarget.Global);
         }
-        await context.globalState.update("copilot-quota-alert.dailyUsage", undefined);
+        await context.globalState.update(
+            "copilot-quota-alert.dailyAiCreditUsage",
+            undefined
+        );
         await context.globalState.update("lastHolidayResetMonth", currentMonthKey);
     }
 }
@@ -269,8 +273,9 @@ async function checkAndResetMonthlyState(context: vscode.ExtensionContext): Prom
  * Main refresh cycle: fetch usage → calculate → update UI.
  *
  * Data-source strategy:
- * 1. Try the internal Copilot API first (near real-time, no username needed).
- * 2. If that fails, fall back to the official billing API.
+ * 1. Try the internal Copilot API first (near real-time, no username needed),
+ *    accepting it only when GitHub marks the response as token-based billing.
+ * 2. If that fails, use the official AI Credit billing API.
  *
  * Self-healing behaviour:
  * - Missing token → prompts the user
@@ -291,56 +296,61 @@ async function updateQuota(): Promise<void> {
         }
 
         const { token, source } = auth;
+        const config = vscode.workspace.getConfiguration("copilot-quota-alert");
+        let monthlyAiCreditLimit =
+            config.get<number>("monthlyAiCreditLimit")
+            ?? DEFAULT_MONTHLY_AI_CREDIT_LIMIT;
+        if (!Number.isFinite(monthlyAiCreditLimit) || monthlyAiCreditLimit <= 0) {
+            monthlyAiCreditLimit = DEFAULT_MONTHLY_AI_CREDIT_LIMIT;
+        }
 
         // --- Fetch usage data --------------------------------------------------
         let usage: CopilotUsage;
         try {
-            usage = await fetchCopilotInternal(token);
+            usage = await fetchCopilotInternalAiCredits(
+                token,
+                monthlyAiCreditLimit
+            );
         } catch (internalError) {
             // Re-throw auth errors immediately
             if (internalError instanceof TokenExpiredError) {
                 throw internalError;
             }
 
-            // Internal API unavailable — fall back to billing API
-            const config = vscode.workspace.getConfiguration("copilot-quota-alert");
-
-            let monthlyLimit =
-                config.get<number>("monthlyLimit") ?? DEFAULT_MONTHLY_LIMIT;
-            if (!Number.isFinite(monthlyLimit) || monthlyLimit <= 0) {
-                monthlyLimit = DEFAULT_MONTHLY_LIMIT;
-            }
-
-            let username = config.get<string>("username")?.trim();
+            // Internal API unavailable or legacy — use the AI Credit API.
+            let username = extensionContext.globalState
+                .get<string>("copilot-quota-alert.username")
+                ?.trim();
             if (!username) {
                 username = await fetchUsername(token);
-                await config.update(
-                    "username",
-                    username,
-                    vscode.ConfigurationTarget.Global
+                await extensionContext.globalState.update(
+                    "copilot-quota-alert.username",
+                    username
                 );
             }
 
             try {
-                usage = await fetchCopilotBilling(token, username, monthlyLimit);
+                usage = await fetchCopilotAiCreditBilling(
+                    token,
+                    username,
+                    monthlyAiCreditLimit
+                );
             } catch (billingError) {
                 if (billingError instanceof NotFoundError) {
                     // Cached username is likely wrong — re-resolve
-                    await config.update(
-                        "username",
-                        undefined,
-                        vscode.ConfigurationTarget.Global
+                    await extensionContext.globalState.update(
+                        "copilot-quota-alert.username",
+                        undefined
                     );
                     const freshUsername = await fetchUsername(token);
-                    await config.update(
-                        "username",
-                        freshUsername,
-                        vscode.ConfigurationTarget.Global
+                    await extensionContext.globalState.update(
+                        "copilot-quota-alert.username",
+                        freshUsername
                     );
-                    usage = await fetchCopilotBilling(
+                    usage = await fetchCopilotAiCreditBilling(
                         token,
                         freshUsername,
-                        monthlyLimit
+                        monthlyAiCreditLimit
                     );
                 } else {
                     throw billingError;
@@ -349,30 +359,34 @@ async function updateQuota(): Promise<void> {
         }
 
         // --- Calculate & display -----------------------------------------------
-        const config = vscode.workspace.getConfiguration("copilot-quota-alert");
         const thresholdPercent = config.get<number>("thresholdPercent") ?? 0;
         const extraHolidayCount = config.get<number>("extraHolidayCount") ?? 0;
 
         const summary = computeQuotaSummary(
-            usage.usedRequests,
-            usage.monthlyLimit,
+            usage.usedAiCredits,
+            usage.monthlyAiCreditLimit,
             thresholdPercent,
             extraHolidayCount
         );
 
         const now = new Date();
         const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const dailyUsage = extensionContext.globalState.get<Record<string, number>>("copilot-quota-alert.dailyUsage") || {};
+        const dailyUsage = extensionContext.globalState.get<Record<string, number>>(
+            "copilot-quota-alert.dailyAiCreditUsage"
+        ) || {};
         
         if (Object.keys(dailyUsage).length === 0) {
             const yesterday = new Date();
             yesterday.setDate(now.getDate() - 1);
             const yDateStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-            dailyUsage[yDateStr] = usage.usedRequests;
+            dailyUsage[yDateStr] = usage.usedAiCredits;
         }
 
-        dailyUsage[dateStr] = usage.usedRequests;
-        await extensionContext.globalState.update("copilot-quota-alert.dailyUsage", dailyUsage);
+        dailyUsage[dateStr] = usage.usedAiCredits;
+        await extensionContext.globalState.update(
+            "copilot-quota-alert.dailyAiCreditUsage",
+            dailyUsage
+        );
 
         lastSummary = summary;
         updateStatusBar(summary, source);
@@ -403,4 +417,5 @@ export function deactivate() {
         clearInterval(refreshTimer);
         refreshTimer = undefined;
     }
+    disposeStatusBarItem();
 }

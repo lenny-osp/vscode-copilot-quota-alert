@@ -41,6 +41,18 @@ suite('Quota Calculator Test Suite', () => {
         assert.strictEqual(quotaCalculator.calculateSafeQuotaPercent(22, 11), 50);
     });
 
+    test('calculateUsagePercent supports fractional AI credits', () => {
+        assert.strictEqual(
+            quotaCalculator.calculateUsagePercent(375.5, 1500),
+            (375.5 / 1500) * 100
+        );
+    });
+
+    test('calculateUsagePercent returns zero for an invalid allowance', () => {
+        assert.strictEqual(quotaCalculator.calculateUsagePercent(100, 0), 0);
+        assert.strictEqual(quotaCalculator.calculateUsagePercent(100, -1), 0);
+    });
+
     test('shouldAlert - with threshold', () => {
         // Safe: 25%, Usage: 30%, Threshold: 0 -> Alert
         assert.strictEqual(quotaCalculator.shouldAlert(30, 25, 0), true);
@@ -58,13 +70,13 @@ suite('Quota Calculator Test Suite', () => {
         // Working day of March 13th: 10 (2,3,4,5,6, 9,10,11,12,13)
         // Safe quota: 10 / 22 * 100 = 45.45...%
 
-        const summary = quotaCalculator.computeQuotaSummary(100, 300, 0, 0, now);
+        const summary = quotaCalculator.computeQuotaSummary(500, 1500, 0, 0, now);
 
         assert.strictEqual(summary.totalWorkingDays, 22);
         assert.strictEqual(summary.currentWorkingDay, 10);
-        assert.strictEqual(summary.usedRequests, 100);
-        assert.strictEqual(summary.monthlyLimit, 300);
-        assert.strictEqual(Math.round(summary.usagePercent), 33); // 100/300 = 33.33%
+        assert.strictEqual(summary.usedAiCredits, 500);
+        assert.strictEqual(summary.monthlyAiCreditLimit, 1500);
+        assert.strictEqual(Math.round(summary.usagePercent), 33); // 500/1500 = 33.33%
         assert.strictEqual(summary.isOverBudget, false); // 33.33% < 45.45%
     });
 
@@ -75,13 +87,13 @@ suite('Quota Calculator Test Suite', () => {
         // Working day of March 13th: 10
         // Safe quota: 10 / 20 * 100 = 50%
 
-        const summary = quotaCalculator.computeQuotaSummary(100, 300, 0, 2, now);
+        const summary = quotaCalculator.computeQuotaSummary(500, 1500, 0, 2, now);
 
         assert.strictEqual(summary.totalWorkingDays, 20);
         assert.strictEqual(summary.currentWorkingDay, 10);
-        assert.strictEqual(summary.usedRequests, 100);
-        assert.strictEqual(summary.monthlyLimit, 300);
-        assert.strictEqual(Math.round(summary.usagePercent), 33); // 100/300 = 33.33%
+        assert.strictEqual(summary.usedAiCredits, 500);
+        assert.strictEqual(summary.monthlyAiCreditLimit, 1500);
+        assert.strictEqual(Math.round(summary.usagePercent), 33); // 500/1500 = 33.33%
         assert.strictEqual(summary.isOverBudget, false); // 33.33% < 50%
     });
 });
