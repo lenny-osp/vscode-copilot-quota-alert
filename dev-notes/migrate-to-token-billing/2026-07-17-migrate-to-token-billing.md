@@ -1,7 +1,7 @@
 # Migrate to Token Billing - Working Log
 
 **Started:** 2026-07-17
-**Status:** In Progress
+**Status:** Completed
 **Task:** Replace premium-request quota calculations with GitHub Copilot token-billing calculations, update all supporting materials, validate the change, merge it, and publish a major release.
 
 ## Overview
@@ -42,7 +42,7 @@
 
 ### Tests and documentation
 
-- **Status:** → In Progress
+- **Status:** ✓ Done
 - Added mocked GitHub API contract tests for headers, fractional internal snapshots, rejection of legacy billing, multi-model credit aggregation, billing periods, and authentication errors.
 - Updated calculator and status-bar tests for fractional AI Credits and the new UI terminology.
 - Updated `README.md`, `CONTRIBUTING.md`, package metadata, configuration schema, lockfile metadata, and added `CHANGELOG.md` for version 2.0.0.
@@ -53,11 +53,10 @@
 - A later run exposed that the non-fatal disposable warning came from status-bar test lifecycle state. Added explicit status-bar disposal/reset logic and wired it into extension deactivation and test teardown.
 - Final validation is clean: `npm run lint`, `npm test` (38 passing), `npm run build`, and `npm run package` all succeeded without application warnings or failed assertions.
 - The final 2.0.0 VSIX contains 15 files (manifest, README, changelog, and runtime bundles); tests, workflows, and development logs are excluded. Packaging retains the repository's pre-existing non-blocking warning that no license file exists.
-- Next: inspect the final diff, commit, publish the branch, open/validate/merge the PR, and release v2.0.0.
 
 ### Final review and publication
 
-- **Status:** → In Progress
+- **Status:** ✓ Done
 - `git diff --check` passed; version metadata is consistently `2.0.0` in the manifest and lockfile.
 - Scanned tracked and new source/documentation files for credential patterns; the only match is the intentional PAT-format validation regex.
 - Confirmed no stale request API endpoint, request-domain field, or old API-version reference remains. Legacy terminology appears only in migration notes, explicit rejection tests, and explanatory comments.
@@ -71,7 +70,9 @@
 - Created and pushed annotated tag `v2.0.0` on `4caae15`. The release workflow failed before build because the manifest was already `2.0.0` and `npm version` rejects an unchanged version by default.
 - Verified npm's official `allowSameVersion` option. Decision: add `--allow-same-version` to the workflow so synchronized manifests are valid, merge the workflow fix separately, and publish the existing immutable tag manually with a freshly rebuilt VSIX.
 - Executed the exact corrected `npm version 2.0.0 --no-git-tag-version --allow-same-version` command locally; it completed successfully without modifying package metadata.
-- Next: merge the release-workflow fix, publish and verify the v2.0.0 release, then finalize this log.
+- PR #42 passed build/lint/compile and extension-host tests on Linux, macOS, and Windows, then merged as `2c4bbe6`.
+- Rebuilt the VSIX from the exact `v2.0.0` tag and published the public, non-prerelease GitHub release with asset `copilot-quota-alert-v2.0.0.vsix`.
+- Verified the uploaded asset is 29,819 bytes and its GitHub digest matches the local artifact: `sha256:cc8927108e6a5a926089d7cdfed26bd19d8e5991e10e30adc908b0b14dca6528`.
 
 ## Remaining Work
 
@@ -80,10 +81,13 @@
 - [x] Update and expand tests.
 - [x] Update all documentation and release metadata.
 - [x] Run formatting, linting, compilation, packaging, and tests.
-- [ ] Create and validate a PR.
-- [ ] Merge the PR.
-- [ ] Create and verify the next major release.
+- [x] Create and validate a PR.
+- [x] Merge the PR.
+- [x] Create and verify the next major release.
 
 ## Notes & Decisions
 
 - The working tree was clean before task files were added, so no unrelated user changes need to be isolated.
+- GitHub bills model-specific token usage in AI Credits; the extension intentionally displays credits rather than misleading raw-token totals.
+- Version 2.0.0 is a breaking settings/storage migration because premium requests and AI Credits are incompatible units.
+- Release: https://github.com/lenny-osp/vscode-copilot-quota-alert/releases/tag/v2.0.0
