@@ -67,7 +67,11 @@
 - CI-fix decision: give `@vscode/test-electron` a short, unique `--user-data-dir` under the OS temp directory and remove it after the test host exits. This targets the observed runner-only infrastructure failure without changing application behavior.
 - Verified the test-electron `launchArgs` contract in the installed official package, including that an explicit `--user-data-dir` suppresses its long default path.
 - `npm run lint` and the complete local extension-host suite (38 passing) succeeded with the short temporary profile and cleanup logic.
-- Next: publish the CI fix, wait for all PR checks, merge, and release v2.0.0.
+- Published the CI fix as `fd70b3b`; PR #41 then passed build/lint/compile and extension-host tests on Linux, macOS, and Windows. Merged PR #41 as `4caae15`, and its post-merge `main` CI also passed.
+- Created and pushed annotated tag `v2.0.0` on `4caae15`. The release workflow failed before build because the manifest was already `2.0.0` and `npm version` rejects an unchanged version by default.
+- Verified npm's official `allowSameVersion` option. Decision: add `--allow-same-version` to the workflow so synchronized manifests are valid, merge the workflow fix separately, and publish the existing immutable tag manually with a freshly rebuilt VSIX.
+- Executed the exact corrected `npm version 2.0.0 --no-git-tag-version --allow-same-version` command locally; it completed successfully without modifying package metadata.
+- Next: merge the release-workflow fix, publish and verify the v2.0.0 release, then finalize this log.
 
 ## Remaining Work
 
