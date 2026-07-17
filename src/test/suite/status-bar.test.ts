@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import {
     createStatusBarItem,
     disposeStatusBarItem,
+    resolveMonthlyAiCreditLimit,
     updateStatusBar,
 } from '../../status-bar';
 import type { QuotaSummary } from '../../quota-calculator';
@@ -109,5 +110,18 @@ suite('Status Bar Test Suite', () => {
             item.text.includes('$(warning)'),
             `Expected warning icon in status bar text, got: ${item.text}`
         );
+    });
+
+    test('daily report allowance prefers the last live GitHub total', () => {
+        const context = {
+            globalState: {
+                get: <T>(key: string): T | undefined =>
+                    key === 'copilot-quota-alert.lastKnownAiCreditLimit'
+                        ? 8000 as T
+                        : undefined,
+            },
+        } as unknown as vscode.ExtensionContext;
+
+        assert.strictEqual(resolveMonthlyAiCreditLimit(context), 8000);
     });
 });

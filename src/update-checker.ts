@@ -2,8 +2,8 @@
  * Update checker for the Copilot Quota Alert extension.
  *
  * Periodically checks the GitHub Releases API for a newer version
- * and shows a non-intrusive notification with an "Install" action
- * that opens the VS Code Marketplace page.
+ * and shows a non-intrusive notification with a download action
+ * that opens the release's VSIX asset on GitHub.
  */
 
 import * as vscode from "vscode";
@@ -15,8 +15,6 @@ import * as vscode from "vscode";
 const EXTENSION_ID = "chihling.copilot-quota-alert";
 const GITHUB_RELEASES_URL =
     "https://api.github.com/repos/lenny-osp/vscode-copilot-quota-alert/releases/latest";
-const MARKETPLACE_URL =
-    "https://marketplace.visualstudio.com/items?itemName=chihling.copilot-quota-alert";
 const DISMISSED_VERSION_KEY = "copilot-quota-alert.lastDismissedVersion";
 
 // ---------------------------------------------------------------------------
@@ -32,6 +30,20 @@ export function getLatestDiscoveredVersion(): string | undefined {
 export interface GitHubRelease {
     tag_name: string;
     html_url: string;
+    assets?: GitHubReleaseAsset[];
+}
+
+export interface GitHubReleaseAsset {
+    name: string;
+    browser_download_url: string;
+}
+
+/** Returns the release's VSIX asset URL, or its page when no VSIX is attached. */
+export function getReleaseDownloadUrl(release: GitHubRelease): string {
+    const vsixAsset = release.assets?.find(
+        (asset) => asset.name.toLowerCase().endsWith(".vsix")
+    );
+    return vsixAsset?.browser_download_url ?? release.html_url;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,12 +179,14 @@ export async function checkForUpdates(
     const action = await vscode.window.showInformationMessage(
         `Copilot Quota Alert: A new version (v${cleanVersion}) is available! ` +
             `You are currently on v${currentVersion}.`,
-        "Install",
+        "Download VSIX",
         "Dismiss"
     );
 
-    if (action === "Install") {
-        vscode.env.openExternal(vscode.Uri.parse(MARKETPLACE_URL));
+    if (action === "Download VSIX") {
+        await vscode.env.openExternal(
+            vscode.Uri.parse(getReleaseDownloadUrl(release))
+        );
     } else if (action === "Dismiss") {
         await context.globalState.update(DISMISSED_VERSION_KEY, latestVersion);
     }

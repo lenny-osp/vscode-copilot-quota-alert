@@ -265,6 +265,10 @@ async function checkAndResetMonthlyState(context: vscode.ExtensionContext): Prom
             "copilot-quota-alert.dailyAiCreditUsage",
             undefined
         );
+        await context.globalState.update(
+            "copilot-quota-alert.lastKnownAiCreditLimit",
+            undefined
+        );
         await context.globalState.update("lastHolidayResetMonth", currentMonthKey);
     }
 }
@@ -307,10 +311,7 @@ async function updateQuota(): Promise<void> {
         // --- Fetch usage data --------------------------------------------------
         let usage: CopilotUsage;
         try {
-            usage = await fetchCopilotInternalAiCredits(
-                token,
-                monthlyAiCreditLimit
-            );
+            usage = await fetchCopilotInternalAiCredits(token);
         } catch (internalError) {
             // Re-throw auth errors immediately
             if (internalError instanceof TokenExpiredError) {
@@ -386,6 +387,10 @@ async function updateQuota(): Promise<void> {
         await extensionContext.globalState.update(
             "copilot-quota-alert.dailyAiCreditUsage",
             dailyUsage
+        );
+        await extensionContext.globalState.update(
+            "copilot-quota-alert.lastKnownAiCreditLimit",
+            usage.monthlyAiCreditLimit
         );
 
         lastSummary = summary;

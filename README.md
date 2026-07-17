@@ -5,7 +5,7 @@ A VS Code extension that monitors token-priced GitHub Copilot usage in **GitHub 
 ## Features
 
 - **Token-billing Monitoring**: Tracks AI Credits, GitHub's normalized billing unit for model- and token-dependent Copilot usage.
-- **Near-real-time Monitoring**: Uses GitHub's internal quota snapshot when it explicitly reports token-based billing, with the official AI Credit billing API as fallback.
+- **Near-real-time Monitoring**: Uses GitHub's internal quota snapshot, including its live included allowance and finite additional-usage budget, when it explicitly reports token-based billing; the official AI Credit billing API is the fallback.
 - **Working Day Pacing**: Calculates your quota based on actual working days (Monday–Friday).
 - **Status Bar Integration**: Visual indicator of your current usage vs. today's safe quota.
 - **Smart Alerts**: Color-coded status bar warning and once-per-day alert dialog when you exceed your safe quota.
@@ -25,7 +25,7 @@ The extension calculates pacing using this logic:
 4. **Current Usage**: Fetches AI Credits consumed across all token-billed models and divides that by the monthly AI Credit allowance.
 5. **Comparison**: If `Usage % > Safe Quota % + Threshold`, the extension triggers a warning.
 
-Included AI Credits reset at 00:00 UTC on the first day of each calendar month. Current paid individual-plan totals are 1,500 credits for Copilot Pro, 7,000 for Copilot Pro+, and 20,000 for Copilot Max. GitHub may change plan allowances, especially flex allotments, so the total allowance is configurable and always used as the quota denominator.
+Included AI Credits reset at 00:00 UTC on the first day of each calendar month. Allowances vary by plan, and users can configure a budget for additional usage. The extension uses GitHub's live `credits_used` and `entitlement` values, adding a finite additional-usage entitlement when present (for example, 7,618 used out of an 8,000 total produces 95.2%). The configurable total is used only as a fallback when GitHub's official usage endpoint reports consumption without an allowance.
 
 ## Setup
 
@@ -62,14 +62,15 @@ The token is stored securely in VS Code's encrypted **SecretStorage** — it is 
 - `copilot-quota-alert.thresholdPercent`: (Default: `0`) Positive values allow more usage before alerting; negative values alert you earlier.
 - `copilot-quota-alert.extraHolidayCount`: (Default: `0`) Deducts non-weekend holidays from this month's working days; resets monthly.
 - `copilot-quota-alert.refreshIntervalMinutes`: (Default: `5`) Frequency of automatic updates.
-- `copilot-quota-alert.monthlyAiCreditLimit`: (Default: `1500`) Total monthly AI Credit allowance used for quota calculations. Set this to your plan's current total allowance.
+- `copilot-quota-alert.monthlyAiCreditLimit`: (Default: `1500`) Fallback monthly AI Credit allowance. The live included and additional-usage entitlements take precedence; set this only for accounts that must use the official fallback usage endpoint.
 - `copilot-quota-alert.checkForUpdates`: (Default: `true`) Automatically check for new versions on extension activation.
 
-> **Version 2 migration:** `monthlyLimit` represented premium requests and has been removed. If you customized it, configure `monthlyAiCreditLimit` with your current AI Credit allowance.
+> **Version 2 migration:** `monthlyLimit` represented premium requests and has been removed. If you customized it, configure `monthlyAiCreditLimit` as the fallback allowance; GitHub's live entitlements take precedence.
 
 ## Data Source Limitations
 
 - The official user billing endpoint only reports Copilot usage billed directly to an individual's personal account and may lag behind real-time usage.
+- The near-real-time token-billing snapshot supplies consumed credits, included entitlement, and any finite additional-usage entitlement; the extension adds the entitlements for the quota denominator.
 - Organization- or enterprise-managed seats are billed at the organization/enterprise level. Their pooled usage is not available from the user endpoint; the extension can only calculate usage when GitHub's internal snapshot exposes a finite per-user credit balance.
 - Existing annual Pro or Pro+ subscribers who remain on GitHub's legacy request-based billing are not treated as AI Credit accounts. Version 2 intentionally avoids mixing legacy request counts with credit values.
 
@@ -84,6 +85,8 @@ See GitHub's documentation for [usage-based billing for individuals](https://doc
 4. Click the **...** (Views and More Actions) in the top right of the Extensions bar.
 5. Select **Install from VSIX...**.
 6. Select the downloaded `.vsix` file.
+
+When an update notification appears, choose **Download VSIX** to open the latest release's `.vsix` asset directly on GitHub.
 
 > **Tip**: To **update** the extension, simply follow the steps above with the new `.vsix` file. VS Code will automatically replace the old version with the new one.
 

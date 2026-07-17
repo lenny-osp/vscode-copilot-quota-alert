@@ -225,9 +225,7 @@ export function showDailyUsageReport(context: vscode.ExtensionContext): void {
         return;
     }
 
-    const config = vscode.workspace.getConfiguration("copilot-quota-alert");
-    const monthlyAiCreditLimit =
-        config.get<number>("monthlyAiCreditLimit") ?? 1_500;
+    const monthlyAiCreditLimit = resolveMonthlyAiCreditLimit(context);
 
     const sortedDates = Object.keys(dailyUsage).sort();
     const augmentedUsage: Record<string, number> = { ...dailyUsage };
@@ -289,4 +287,17 @@ export function showDailyUsageReport(context: vscode.ExtensionContext): void {
     }
 
     vscode.window.showInformationMessage(messageLines.join("\n"), { modal: true });
+}
+
+/** Resolves the live allowance saved during refresh, then the configured fallback. */
+export function resolveMonthlyAiCreditLimit(
+    context: vscode.ExtensionContext
+): number {
+    return context.globalState.get<number>(
+        "copilot-quota-alert.lastKnownAiCreditLimit"
+    )
+        ?? vscode.workspace
+            .getConfiguration("copilot-quota-alert")
+            .get<number>("monthlyAiCreditLimit")
+        ?? 1_500;
 }

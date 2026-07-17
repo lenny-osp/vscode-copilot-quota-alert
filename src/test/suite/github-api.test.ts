@@ -31,28 +31,72 @@ suite('GitHub API Test Suite', () => {
         );
     });
 
-    test('internal endpoint reads fractional AI credits only for token billing', async () => {
+    test('internal endpoint uses the live entitlement as the quota total', async () => {
         globalThis.fetch = (async () => new Response(JSON.stringify({
             token_based_billing: true,
             quota_reset_date_utc: '2026-08-01T00:00:00.000Z',
             quota_snapshots: {
                 premium_interactions: {
-                    entitlement: 1000,
-                    quota_remaining: 700.25,
-                    overage_count: 0.75,
+                    credits_used: 7618,
+                    entitlement: 8000,
+                    quota_remaining: 381.7,
+                    overage_count: 0,
+                    overage_entitlement: 0,
                     unlimited: false,
                 },
             },
         }), { status: 200 })) as typeof fetch;
 
-        const usage = await fetchCopilotInternalAiCredits('test-token', 1500);
+        const usage = await fetchCopilotInternalAiCredits('test-token');
 
-        assert.strictEqual(usage.usedAiCredits, 300.5);
-        // The internal snapshot can expose only base credits. Quota pacing must
-        // retain the configured total allowance, which includes flex credits.
-        assert.strictEqual(usage.monthlyAiCreditLimit, 1500);
+        assert.strictEqual(usage.usedAiCredits, 7618);
+        assert.strictEqual(usage.monthlyAiCreditLimit, 8000);
+        assert.ok(
+            Math.abs(
+                usage.usedAiCredits / usage.monthlyAiCreditLimit * 100
+                - 95.225
+            ) < 1e-10
+        );
         assert.strictEqual(usage.periodStart.toISOString(), '2026-07-01T00:00:00.000Z');
         assert.strictEqual(usage.periodEnd.toISOString(), '2026-08-01T00:00:00.000Z');
+    });
+
+    test('internal endpoint adds a finite additional-usage entitlement', async () => {
+        globalThis.fetch = (async () => new Response(JSON.stringify({
+            token_based_billing: true,
+            quota_snapshots: {
+                premium_interactions: {
+                    credits_used: 7618,
+                    entitlement: 7000,
+                    overage_entitlement: 1000,
+                    unlimited: false,
+                },
+            },
+        }), { status: 200 })) as typeof fetch;
+
+        const usage = await fetchCopilotInternalAiCredits('test-token');
+
+        assert.strictEqual(usage.usedAiCredits, 7618);
+        assert.strictEqual(usage.monthlyAiCreditLimit, 8000);
+    });
+
+    test('internal endpoint preserves fractional credits without an overage budget', async () => {
+        globalThis.fetch = (async () => new Response(JSON.stringify({
+            token_based_billing: true,
+            quota_snapshots: {
+                premium_interactions: {
+                    entitlement: 1500,
+                    quota_remaining: 1199.75,
+                    overage_count: 0,
+                    unlimited: false,
+                },
+            },
+        }), { status: 200 })) as typeof fetch;
+
+        const usage = await fetchCopilotInternalAiCredits('test-token');
+
+        assert.strictEqual(usage.usedAiCredits, 300.25);
+        assert.strictEqual(usage.monthlyAiCreditLimit, 1500);
     });
 
     test('internal endpoint rejects legacy premium request snapshots', async () => {
@@ -68,7 +112,7 @@ suite('GitHub API Test Suite', () => {
         }), { status: 200 })) as typeof fetch;
 
         await assert.rejects(
-            fetchCopilotInternalAiCredits('test-token', 1500),
+            fetchCopilotInternalAiCredits('test-token'),
             /did not return token-based AI Credit usage/
         );
     });

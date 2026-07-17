@@ -29,7 +29,8 @@
 - The official user endpoint is `GET /users/{username}/settings/billing/ai_credit/usage` with API version `2026-03-10`, and reports consumed credits in `usageItems[].grossQuantity`. It requires fine-grained `Plan: read` permission and only covers personally billed plans.
 - The near-real-time internal endpoint retains the `premium_interactions` key but adds `token_based_billing`; under token billing the entitlement and fractional remaining values represent AI credits. It must not be interpreted as credits unless that discriminator is explicitly true.
 - Further validation found that the internal snapshot can expose base credits rather than the documented base-plus-flex plan total (for example, 1,000 versus 1,500 on Pro).
-- Decision: model the application in AI credits, retain the explicitly token-based internal snapshot as the preferred near-real-time usage source, use the official AI-credit endpoint as fallback, and always use `monthlyAiCreditLimit` as the quota denominator.
+- Original decision: model the application in AI credits, retain the explicitly token-based internal snapshot as the preferred near-real-time usage source, use the official AI-credit endpoint as fallback, and use `monthlyAiCreditLimit` as the quota denominator.
+- Superseded on 2026-07-17: the token-billing snapshot now exposes both the included entitlement and a finite `overage_entitlement`. Their sum is authoritative; `monthlyAiCreditLimit` is only the fallback for the official endpoint, which does not report a total.
 
 ### Implementation
 

@@ -1,5 +1,9 @@
 import * as assert from 'assert';
-import { isNewerVersion } from '../../update-checker';
+import {
+    getReleaseDownloadUrl,
+    isNewerVersion,
+    type GitHubRelease,
+} from '../../update-checker';
 
 suite('Update Checker Test Suite', () => {
     // -----------------------------------------------------------------------
@@ -49,5 +53,37 @@ suite('Update Checker Test Suite', () => {
     test('isNewerVersion handles versions with different segment lengths', () => {
         // "1.0" is treated as "1.0.0"
         assert.strictEqual(isNewerVersion('1.0', '1.0.1'), true);
+    });
+
+    test('getReleaseDownloadUrl selects the latest release VSIX asset', () => {
+        const release: GitHubRelease = {
+            tag_name: 'v2.1.0',
+            html_url: 'https://github.com/lenny-osp/vscode-copilot-quota-alert/releases/tag/v2.1.0',
+            assets: [
+                {
+                    name: 'checksums.txt',
+                    browser_download_url: 'https://github.com/example/checksums.txt',
+                },
+                {
+                    name: 'copilot-quota-alert-v2.1.0.VSIX',
+                    browser_download_url: 'https://github.com/lenny-osp/vscode-copilot-quota-alert/releases/download/v2.1.0/copilot-quota-alert-v2.1.0.vsix',
+                },
+            ],
+        };
+
+        assert.strictEqual(
+            getReleaseDownloadUrl(release),
+            release.assets?.[1].browser_download_url
+        );
+    });
+
+    test('getReleaseDownloadUrl falls back to the GitHub release page', () => {
+        const release: GitHubRelease = {
+            tag_name: 'v2.1.0',
+            html_url: 'https://github.com/lenny-osp/vscode-copilot-quota-alert/releases/tag/v2.1.0',
+            assets: [],
+        };
+
+        assert.strictEqual(getReleaseDownloadUrl(release), release.html_url);
     });
 });

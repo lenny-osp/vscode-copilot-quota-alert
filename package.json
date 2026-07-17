@@ -67,7 +67,7 @@
           "type": "number",
           "default": 1500,
           "exclusiveMinimum": 0,
-          "description": "Total monthly GitHub AI Credit allowance used to calculate quota percentage. Current individual-plan totals: 1500 (Pro), 7000 (Pro+), 20000 (Max)."
+          "description": "Fallback monthly GitHub AI Credit allowance. The extension automatically uses GitHub's live included and additional-usage entitlements when available; this value is used only when the fallback billing endpoint does not report a total."
         },
         "copilot-quota-alert.refreshIntervalMinutes": {
           "type": "number",

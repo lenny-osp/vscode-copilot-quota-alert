@@ -2,6 +2,13 @@
 
 All notable changes to Copilot Quota Alert are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Use GitHub's live `credits_used` and total AI Credit entitlement (including any finite additional-usage entitlement) instead of applying the 1,500-credit fallback to live quota snapshots.
+- Open the latest GitHub release's `.vsix` asset from update notifications instead of the VS Code Marketplace.
+
 ## 2.0.0 - 2026-07-17
 
 ### Changed

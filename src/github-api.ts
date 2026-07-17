@@ -109,11 +109,13 @@ function isFiniteNumber(value: unknown): value is number {
  * GitHub retained the historical `premium_interactions` response key after
  * changing billing models. The values are interpreted as AI credits only when
  * `token_based_billing` is explicitly true, preventing legacy premium request
- * counts from being mislabeled as credits.
+ * counts from being mislabeled as credits. The usable monthly total is the
+ * included entitlement plus any finite pay-as-you-go overage entitlement. A
+ * direct `credits_used` value takes precedence over reconstructing usage from
+ * the remaining balance.
  */
 export async function fetchCopilotInternalAiCredits(
-    token: string,
-    monthlyAiCreditLimit: number
+    token: string
 ): Promise<CopilotUsage> {
     const url = "https://api.github.com/copilot_internal/user";
     const response = await fetch(url, { headers: GITHUB_API_HEADERS(token) });
@@ -126,9 +128,12 @@ export async function fetchCopilotInternalAiCredits(
             premium_interactions?: {
                 token_based_billing?: boolean;
                 entitlement?: number;
+                credits_used?: number;
                 quota_remaining?: number;
                 remaining?: number;
                 overage_count?: number;
+                /** Finite pay-as-you-go budget, expressed in AI credits. */
+                overage_entitlement?: number;
                 unlimited?: boolean;
                 quota_reset_at?: number;
             };
@@ -145,20 +150,28 @@ export async function fetchCopilotInternalAiCredits(
         throw new Error("Internal API did not return a finite AI Credit allowance");
     }
 
-    const remaining = isFiniteNumber(premium.quota_remaining)
-        ? premium.quota_remaining
-        : premium.remaining;
-    if (!isFiniteNumber(remaining)) {
-        throw new Error("Internal API did not return remaining AI Credits");
-    }
-
     const overage = isFiniteNumber(premium.overage_count)
         ? Math.max(0, premium.overage_count)
         : 0;
-    const usedAiCredits = Math.max(
-        0,
-        premium.entitlement - remaining + overage
-    );
+    const overageEntitlement = isFiniteNumber(premium.overage_entitlement)
+        ? Math.max(0, premium.overage_entitlement)
+        : 0;
+    let usedAiCredits: number;
+    if (isFiniteNumber(premium.credits_used)) {
+        usedAiCredits = Math.max(0, premium.credits_used);
+    } else {
+        const remaining = isFiniteNumber(premium.quota_remaining)
+            ? premium.quota_remaining
+            : premium.remaining;
+        if (!isFiniteNumber(remaining)) {
+            throw new Error("Internal API did not return used or remaining AI Credits");
+        }
+        usedAiCredits = Math.max(
+            0,
+            premium.entitlement - remaining + overage
+        );
+    }
+    const totalAiCreditLimit = premium.entitlement + overageEntitlement;
 
     const resetValue = data.quota_reset_date_utc
         ?? (isFiniteNumber(premium.quota_reset_at)
@@ -175,7 +188,7 @@ export async function fetchCopilotInternalAiCredits(
 
     return {
         usedAiCredits,
-        monthlyAiCreditLimit,
+        monthlyAiCreditLimit: totalAiCreditLimit,
         periodStart,
         periodEnd,
     };
