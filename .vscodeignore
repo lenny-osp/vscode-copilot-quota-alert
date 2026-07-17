@@ -2,7 +2,10 @@
 src/**
 node_modules/**
 *.ts
-!out/**
 tsconfig.json
 esbuild.js
 .gitignore
+.github/**
+dev-notes/**
+out/test/**
+CONTRIBUTING.md

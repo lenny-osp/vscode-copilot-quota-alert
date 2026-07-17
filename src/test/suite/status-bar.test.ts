@@ -1,6 +1,10 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { createStatusBarItem, updateStatusBar } from '../../status-bar';
+import {
+    createStatusBarItem,
+    disposeStatusBarItem,
+    updateStatusBar,
+} from '../../status-bar';
 import type { QuotaSummary } from '../../quota-calculator';
 
 // ---------------------------------------------------------------------------
@@ -16,9 +20,9 @@ function makeFakeContext(): vscode.ExtensionContext {
 
 /** A QuotaSummary that won't trigger any alert dialogs (not over budget). */
 const SAFE_SUMMARY: QuotaSummary = {
-    usedRequests: 50,
-    monthlyLimit: 300,
-    usagePercent: (50 / 300) * 100,
+    usedAiCredits: 250.5,
+    monthlyAiCreditLimit: 1500,
+    usagePercent: (250.5 / 1500) * 100,
     totalWorkingDays: 22,
     currentWorkingDay: 10,
     dailyQuotaPercent: 100 / 22,
@@ -38,7 +42,7 @@ suite('Status Bar Test Suite', () => {
     });
 
     teardown(() => {
-        item.dispose();
+        disposeStatusBarItem();
     });
 
     test('tooltip contains "Auth: VS Code GitHub session" when authSource is "session"', () => {
@@ -68,6 +72,14 @@ suite('Status Bar Test Suite', () => {
         );
     });
 
+    test('tooltip describes token-billed usage as AI credits', () => {
+        updateStatusBar(SAFE_SUMMARY, 'session');
+        const tooltip = item.tooltip as string;
+        assert.ok(tooltip.includes('GitHub Copilot AI Credit Usage'));
+        assert.ok(tooltip.includes('Used: 250.5 / 1500 AI credits'));
+        assert.ok(!tooltip.includes('Premium Request'));
+    });
+
     test('tooltip does not contain "Auth:" when authSource is undefined', () => {
         updateStatusBar(SAFE_SUMMARY, undefined);
         const tooltip = item.tooltip as string;
@@ -88,8 +100,8 @@ suite('Status Bar Test Suite', () => {
     test('status bar text shows warning icon when over budget', () => {
         const overBudgetSummary: QuotaSummary = {
             ...SAFE_SUMMARY,
-            usedRequests: 250,
-            usagePercent: (250 / 300) * 100,
+            usedAiCredits: 1250,
+            usagePercent: (1250 / 1500) * 100,
             isOverBudget: true,
         };
         updateStatusBar(overBudgetSummary, 'session');

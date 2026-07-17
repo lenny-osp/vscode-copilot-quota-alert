@@ -95,18 +95,18 @@ export function calculateSafeQuotaPercent(
 /**
  * Calculates current usage as a percentage of the monthly limit.
  *
- * @param usedRequests  Number of premium requests used
- * @param monthlyLimit  Total monthly premium request quota
+ * @param usedAiCredits  Number of GitHub AI credits consumed
+ * @param monthlyAiCreditLimit  Total monthly GitHub AI credit allowance
  * @returns Usage percentage (e.g. 15.0)
  */
 export function calculateUsagePercent(
-    usedRequests: number,
-    monthlyLimit: number
+    usedAiCredits: number,
+    monthlyAiCreditLimit: number
 ): number {
-    if (monthlyLimit <= 0) {
+    if (monthlyAiCreditLimit <= 0) {
         return 0;
     }
-    return (usedRequests / monthlyLimit) * 100;
+    return (usedAiCredits / monthlyAiCreditLimit) * 100;
 }
 
 /**
@@ -144,23 +144,23 @@ export interface QuotaSummary {
     totalWorkingDays: number;
     /** Whether the user should be alerted */
     isOverBudget: boolean;
-    /** Raw number of used requests */
-    usedRequests: number;
-    /** Total monthly limit */
-    monthlyLimit: number;
+    /** GitHub AI credits consumed in the current billing period */
+    usedAiCredits: number;
+    /** Total monthly GitHub AI credit allowance */
+    monthlyAiCreditLimit: number;
 }
 
 /**
  * Computes a full quota summary from usage data.
  *
- * @param usedRequests  Number of premium requests used
- * @param monthlyLimit  Total monthly premium request quota
+ * @param usedAiCredits  Number of GitHub AI credits consumed
+ * @param monthlyAiCreditLimit  Total monthly GitHub AI credit allowance
  * @param thresholdPercent  User-configured threshold offset
  * @param now           Current date (defaults to now)
  */
 export function computeQuotaSummary(
-    usedRequests: number,
-    monthlyLimit: number,
+    usedAiCredits: number,
+    monthlyAiCreditLimit: number,
     thresholdPercent: number,
     extraHolidayCount: number = 0,
     now: Date = new Date()
@@ -176,7 +176,10 @@ export function computeQuotaSummary(
         totalWorkingDays,
         currentWorkingDay
     );
-    const usagePercent = calculateUsagePercent(usedRequests, monthlyLimit);
+    const usagePercent = calculateUsagePercent(
+        usedAiCredits,
+        monthlyAiCreditLimit
+    );
     const isOverBudget = shouldAlert(
         usagePercent,
         safeQuotaPercent,
@@ -190,7 +193,7 @@ export function computeQuotaSummary(
         currentWorkingDay,
         totalWorkingDays,
         isOverBudget,
-        usedRequests,
-        monthlyLimit,
+        usedAiCredits,
+        monthlyAiCreditLimit,
     };
 }

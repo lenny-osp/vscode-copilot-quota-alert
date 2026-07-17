@@ -36,7 +36,15 @@ Thank you for your interest in contributing to our project! Whether you're fixin
   ```bash
   npm test
   ```
+- Run all static and packaging checks before submitting:
+  ```bash
+  npm run lint
+  npm run compile
+  npm run build
+  npm run package
+  ```
 - If you're adding new functionality, please **add new tests** in `src/test/suite/`.
+- Billing changes must include mocked API-contract tests and must never send real credentials or billing requests from the test suite.
 - Verify the extension builds correctly:
   ```bash
   npm run build
